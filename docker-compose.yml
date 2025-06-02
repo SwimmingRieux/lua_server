@@ -1,0 +1,41 @@
+version: "3.3"
+
+services:
+  redis1:
+    image: registry.gitlab.com/qio/standard/redis:latest
+    container_name: redis1
+
+  redis2:
+    image: registry.gitlab.com/qio/standard/redis:latest
+    container_name: redis2
+
+  redis3:
+    image: registry.gitlab.com/qio/standard/redis:latest
+    container_name: redis3
+
+  redis1r:
+    image: registry.gitlab.com/qio/standard/redis:latest
+    container_name: redis1r
+
+  redis2r:
+    image: registry.gitlab.com/qio/standard/redis:latest
+    container_name: redis2r
+
+  redis3r:
+    image: registry.gitlab.com/qio/standard/redis:latest
+    container_name: redis3r
+
+  openresty:
+    image: registry.gitlab.com/qio/standard/openresty:1.19.9.1-5-alpine-fat
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf
+      - ./nginx/lua:/usr/local/openresty/nginx/lua
+    depends_on:
+      - redis1
+      - redis2
+      - redis3
+      - redis1r
+      - redis2r
+      - redis3r
