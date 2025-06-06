@@ -1,0 +1,1 @@
+A simple distributed caching system using OpenResty as an API gateway and multiple Redis instances. It implements Lua-based rate limiting and utilizes Redis sharding and replication with FNV1a hashing for key distribution.
