@@ -1,48 +1,58 @@
 local _M = {}
+local cjson = require "cjson.safe"
 
-local limit_store = ngx.shared.rate_limit_store
+local WINDOW_SIZE = 60
+local REQUEST_LIMIT = 60
+local BLOCK_DURATION = 15
 
-function _M.check_limit()
+local now = ngx.now
+local shared_dict = ngx.shared.rate_limit_store
+
+function _M.check()
     local client_ip = ngx.var.remote_addr
-    local current_time = ngx.now()
-    local limit_period = 60
-    local max_requests = 60
-    local block_duration = 15
+    local record = shared_dict:get(client_ip)
+    local current_time = now()
 
-    local key = "rate_limit:" .. client_ip
+    if record then
+        local data = cjson.decode(record)
+        local window_start_time = data.ts
+        local request_count = data.count
+        local blocked_until_time = data.blocked_until or 0
 
-    
-    local last_req_time = 0
-    local req_count = 0
-    local blocked_until = 0
+        if blocked_until_time > current_time then
+            return false, "Rate limit exceeded"
+        end
 
-    local data = limit_store:get(key)
+        if (blocked_until_time > 0 and blocked_until_time <= current_time) or (current_time - window_start_time >= WINDOW_SIZE) then
 
-    if data then
-        local parsed_last_req_time, parsed_req_count, parsed_blocked_until = string.match(data, "(%d+):(%d+):(%d+)")
+            data.ts = current_time
+            data.count = 1
+            data.blocked_until = 0
+            shared_dict:set(client_ip, cjson.encode(data))
+            return true
+        else
 
-        last_req_time = tonumber(parsed_last_req_time) or 0
-        req_count = tonumber(parsed_req_count) or 0
-        blocked_until = tonumber(parsed_blocked_until) or 0
-    end
+            if request_count < REQUEST_LIMIT then
+                data.count = request_count + 1
+                shared_dict:set(client_ip, cjson.encode(data))
+                return true
+            else
 
-    if blocked_until > current_time then
-        return false
-    end
-
-    if (current_time - last_req_time) < limit_period then
-        req_count = req_count + 1
-        if req_count > max_requests then
-            limit_store:set(key, string.format("%d:%d:%d", current_time, req_count, current_time + block_duration), block_duration)
-            return false
+                data.blocked_until = current_time + BLOCK_DURATION
+                shared_dict:set(client_ip, cjson.encode(data))
+                return false, "Rate limit exceeded"
+            end
         end
     else
-        req_count = 1
-        last_req_time = current_time
-    end
 
-    limit_store:set(key, string.format("%d:%d:%d", last_req_time, req_count, 0), limit_period + block_duration)
-    return true
+        local first = {
+            ts = current_time,
+            count = 1,
+            blocked_until = 0
+        }
+        shared_dict:set(client_ip, cjson.encode(first))
+        return true
+    end
 end
 
 return _M

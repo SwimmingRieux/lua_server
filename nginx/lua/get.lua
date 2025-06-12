@@ -1,11 +1,11 @@
-local cjson = require "cjson"
+local cjson = require "cjson.safe"
 local redis_handler = require "redis_handler"
 local rate_limiter = require "rate_limiter"
 
 ngx.req.read_body()
 local args = ngx.req.get_uri_args()
 
-if not rate_limiter.check_limit() then
+if not rate_limiter.check() then
     ngx.header["Content-Type"] = "application/json"
     ngx.status = 429
     ngx.say(cjson.encode({error = "Rate limit exceeded"}))
@@ -35,7 +35,7 @@ red:close()
 
 local found = true
 if value == ngx.null or value == nil then
-    value = nil
+    value = cjson.null
     found = false
 end
 

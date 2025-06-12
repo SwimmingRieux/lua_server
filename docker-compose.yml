@@ -4,34 +4,42 @@ services:
   redis1:
     image: registry.gitlab.com/qio/standard/redis:latest
     container_name: redis1
+    command: ["redis-server", "--appendonly", "yes"]
 
   redis2:
     image: registry.gitlab.com/qio/standard/redis:latest
     container_name: redis2
+    command: ["redis-server", "--appendonly", "yes"]
 
   redis3:
     image: registry.gitlab.com/qio/standard/redis:latest
     container_name: redis3
+    command: ["redis-server", "--appendonly", "yes"]
 
   redis1r:
     image: registry.gitlab.com/qio/standard/redis:latest
     container_name: redis1r
+    depends_on:
+      - redis1
+    command: ["redis-server", "--appendonly", "yes", "--replicaof", "redis1", "6379"]
 
   redis2r:
     image: registry.gitlab.com/qio/standard/redis:latest
     container_name: redis2r
+    depends_on:
+      - redis2
+    command: ["redis-server", "--appendonly", "yes", "--replicaof", "redis2", "6379"]
 
   redis3r:
     image: registry.gitlab.com/qio/standard/redis:latest
     container_name: redis3r
+    depends_on:
+      - redis3
+    command: ["redis-server", "--appendonly", "yes", "--replicaof", "redis3", "6379"]
 
   openresty:
     image: registry.gitlab.com/qio/standard/openresty:1.19.9.1-5-alpine-fat
-    ports:
-      - "8080:80"
-    volumes:
-      - ./nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf
-      - ./nginx/lua:/usr/local/openresty/nginx/lua
+    container_name: openresty
     depends_on:
       - redis1
       - redis2
@@ -39,3 +47,8 @@ services:
       - redis1r
       - redis2r
       - redis3r
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf
+      - ./nginx/lua:/usr/local/openresty/nginx/lua
